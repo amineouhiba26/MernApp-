@@ -1,0 +1,41 @@
+networks:
+  mern-network:
+    driver: bridge
+
+services:
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    networks:
+      - mern-network
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  server:
+    build: ./server
+    image: mern-server
+    container_name: server
+    networks:
+      - mern-network
+    ports:
+      - "9000:9000"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/todos
+    depends_on:
+      - mongodb
+
+  client:
+    build: ./client
+    image: mern-client
+    container_name: client
+    networks:
+      - mern-network
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+
+volumes:
+  mongo-data:
