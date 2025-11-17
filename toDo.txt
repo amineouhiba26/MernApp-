@@ -1,0 +1,277 @@
+TP4 : Déploiement d’Applications avec
+
+Kubernetes
+
+Objectifs
+Les objectifs de ce TP sont :
+— Découvrir Kubernetes pour l’orchestration de conteneurs.
+— Déployer une application MERN en utilisant les objets Deployment,
+Service et ConfigMap.
+— Comprendre le fonctionnement du scaling horizontal et de la mise à jour
+continue.
+Prérequis
+— Avoir réalisé le TP précédent sur l’intégration continue avec Jenkins,
+Docker et Trivy.
+— Disposer d’un cluster Kubernetes fonctionnel :
+— Docker Desktop avec Kubernetes activé.
+— Minikube installé et configuré.
+
+— Avoir les outils kubectl et docker installés et configurés sur votre ma-
+chine.
+
+Instructions
+1. Préparation de l’environnement
+Fork puis clonage du projet :
+Commencez par forker le projet mern-app dans votre espace GitLab (bouton
+Fork sur l’interface GitLab), puis clonez votre fork sur votre machine locale :
+git clone https :// gitlab . com / < votre - user >/ mern - app . git
+cd mern - app
+Remplacez <votre-user> par votre nom d’utilisateur GitLab.
+Construction des images Docker :
+Naviguez dans les répertoires server et client pour construire les images
+Docker :
+# Pour le serveur
+cd server
+docker build -t [ username ]/ mern - server : latest .
+# Pour le client
+cd ../ client
+docker build -t [ username ]/ mern - client : latest .
+
+1
+
+Dr. Salah Gontara DevOps 2025-26
+
+Remplacez [username] par votre nom d’utilisateur Docker Hub.
+Poussez les images sur Docker Hub :
+docker push [ username ]/ mern - server : latest
+docker push [ username ]/ mern - client : latest
+Assurez-vous que votre cluster Kubernetes a accès aux images Docker que
+vous avez construites.
+Vérifiez que votre cluster Kubernetes est opérationnel :
+kubectl cluster - info
+kubectl get nodes
+2. Création du ConfigMap pour la configuration des applications
+Créez un fichier nommé app-configmap.yaml contenant un objet ConfigMap.
+Consultez la documentation officielle pour comprendre la structure et les champs
+requis : Documentation Kubernetes : ConfigMap.
+Le ConfigMap doit contenir les variables d’environnement nécessaires pour
+que le client, le serveur et MongoDB puissent communiquer entre eux. Par
+exemple :
+— MONGO_URI : URI de connexion à MongoDB
+(par exemple, mongodb://mongodb-service:27017/mern-app).
+— REACT_APP_SERVER_URL : URL du serveur pour le client (par exemple,
+http://server-service:5000).
+— PORT : port sur lequel le serveur écoute (5000).
+Exemple de app-configmap.yaml :
+apiVersion : v1
+kind : ConfigMap
+metadata :
+name : app - configmap
+data :
+MONGO_URI : mongodb :// mongodb - service :27017/ mern - app
+REACT_APP_SERVER_URL : http :// server - service :5000
+PORT : "5000"
+Appliquez ce ConfigMap à votre cluster Kubernetes :
+kubectl apply -f app - configmap . yaml
+
+2
+
+Dr. Salah Gontara DevOps 2025-26
+
+3. Création du Deployment et Service pour MongoDB
+Créez les fichiers mongodb-deployment.yaml et mongodb-service.yaml pour
+déployer une instance de MongoDB.
+mongodb-deployment.yaml :
+apiVersion : apps / v1
+kind : Deployment
+metadata :
+name : mongodb - deployment
+spec :
+replicas : 1
+selector :
+matchLabels :
+app : mongodb
+template :
+metadata :
+labels :
+app : mongodb
+spec :
+containers :
+- name : mongodb
+image : mongo : latest
+ports :
+- containerPort : 27017
+mongodb-service.yaml :
+apiVersion : v1
+kind : Service
+metadata :
+name : mongodb - service
+spec :
+selector :
+app : mongodb
+ports :
+- protocol : TCP
+port : 27017
+targetPort : 27017
+type : ClusterIP
+Appliquez ces fichiers :
+kubectl apply -f mongodb - deployment . yaml
+kubectl apply -f mongodb - service . yaml
+
+3
+
+Dr. Salah Gontara DevOps 2025-26
+
+4. Création du Deployment pour l’application serveur en utilisant le
+ConfigMap
+Créez un fichier nommé server-deployment.yaml :
+apiVersion : apps / v1
+kind : Deployment
+metadata :
+name : server - deployment
+spec :
+replicas : 3
+selector :
+matchLabels :
+app : mern - server
+template :
+metadata :
+labels :
+app : mern - server
+spec :
+containers :
+- name : mern - server
+image : [ username ]/ mern - server : latest
+ports :
+- containerPort : 5000
+envFrom :
+- configMapRef :
+name : app - configmap
+Appliquez le Deployment :
+kubectl apply -f server - deployment . yaml
+5. Création du Service pour le serveur
+Créez un fichier nommé server-service.yaml :
+apiVersion : v1
+kind : Service
+metadata :
+name : server - service
+spec :
+selector :
+app : mern - server
+ports :
+- protocol : TCP
+port : 5000
+targetPort : 5000
+Pour Docker Desktop : Ajoutez le type NodePort et spécifiez un nodePort
+dans la plage 30000-32767.
+
+4
+
+Dr. Salah Gontara DevOps 2025-26
+
+type : NodePort
+nodePort : 30001
+Pour Minikube : Ajoutez le type LoadBalancer.
+type : LoadBalancer
+Appliquez le Service :
+kubectl apply -f server - service . yaml
+6. Création du Deployment pour l’application client en utilisant le
+ConfigMap
+Créez un fichier nommé client-deployment.yaml :
+apiVersion : apps / v1
+kind : Deployment
+metadata :
+name : client - deployment
+spec :
+replicas : 3
+selector :
+matchLabels :
+app : mern - client
+template :
+metadata :
+labels :
+app : mern - client
+spec :
+containers :
+- name : mern - client
+image : [ username ]/ mern - client : latest
+ports :
+- containerPort : 3000
+envFrom :
+- configMapRef :
+name : app - configmap
+Appliquez le Deployment :
+kubectl apply -f client - deployment . yaml
+
+5
+
+Dr. Salah Gontara DevOps 2025-26
+
+7. Création du Service pour le client
+Créez un fichier nommé client-service.yaml :
+apiVersion : v1
+kind : Service
+metadata :
+name : client - service
+spec :
+selector :
+app : mern - client
+ports :
+- protocol : TCP
+port : 3000
+targetPort : 3000
+Pour Docker Desktop : Ajoutez le type NodePort et spécifiez un nodePort.
+type : NodePort
+nodePort : 30002
+Pour Minikube : Ajoutez le type LoadBalancer.
+type : LoadBalancer
+Appliquez le Service :
+kubectl apply -f client - service . yaml
+8. Vérification de l’intégration entre le client, le serveur et MongoDB
+Assurez-vous que :
+— Le serveur peut se connecter à MongoDB en utilisant la variable MONGO_URI
+du ConfigMap.
+— Le client peut communiquer avec le serveur en utilisant la variable REACT_APP_SERVER_URL
+du ConfigMap.
+Vérifiez les logs des Pods :
+kubectl logs -l app = mern - server
+kubectl logs -l app = mern - client
+9. Accès à l’application
+Pour Docker Desktop : Accédez au client via :
+http :// localhost :30002
+Pour Minikube : Obtenez l’URL du service client :
+minikube service client - service -- url
+
+Testez l’application pour vous assurer que toutes les composantes fonc-
+tionnent ensemble.
+
+6
+
+Dr. Salah Gontara DevOps 2025-26
+
+10. Scaling et Mise à Jour
+— Scaling : Augmentez le nombre de réplicas du Deployment serveur à 5.
+kubectl scale deployment server - deployment --
+replicas =5
+
+— Mise à jour : Changez l’image utilisée par le Deployment client pour
+une nouvelle version (par exemple, [username]/mern-client:v2).
+Modifiez le fichier client-deployment.yaml en remplaçant l’image,
+puis appliquez les changements :
+kubectl apply -f client - deployment . yaml
+— Observez les effets sur les Pods et les déploiements :
+kubectl get deployments
+kubectl get pods
+11. Nettoyage des ressources
+Supprimez les ressources créées :
+kubectl delete -f app - configmap . yaml
+kubectl delete -f mongodb - deployment . yaml
+kubectl delete -f mongodb - service . yaml
+kubectl delete -f server - deployment . yaml
+kubectl delete -f server - service . yaml
+kubectl delete -f client - deployment . yaml
+kubectl delete -f client - service . yaml
+Livrables
+— Les fichiers *.yaml créés, y compris le ConfigMap.
+— Un rapport expliquant les étapes suivies et les observations réalisées.
+— Des captures d’écran illustrant le fonctionnement de l’application.
