@@ -19,7 +19,7 @@ ingress:
   hosts:
     - host: mern-app.local
       paths:
-        - path: /
+        - /
   tls: []
 
 resources: {}
