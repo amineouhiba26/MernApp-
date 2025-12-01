@@ -1,0 +1,54 @@
+# Default values for mern-app.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# MongoDB configuration
+mongodb:
+  replicaCount: 1
+  image:
+    repository: mongo
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 27017
+
+# Server configuration
+server:
+  replicaCount: 3
+  image:
+    repository: amineouhiba/mern-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5000
+  env:
+    - name: MONGO_URI
+      value: "mongodb://mern-app-mongodb:27017/mern-app"
+    - name: PORT
+      value: "5000"
+
+# Client configuration
+client:
+  replicaCount: 3
+  image:
+    repository: amineouhiba/mern-client
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    - name: REACT_APP_SERVER_URL
+      value: "http://mern-app-server:5000"
+  ingress:
+    enabled: true
+    className: ""
+    annotations: {}
+    hosts:
+      - host: mern-app.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
